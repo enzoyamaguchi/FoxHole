@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FoxHole - Encurtador de URLs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-card: rgba(255, 255, 255, 0.03);
+      --border: rgba(255, 255, 255, 0.06);
+      --text-primary: #f0f0f5;
+      --text-secondary: #8888a0;
+      --accent: #6c5ce7;
+      --accent-light: #a29bfe;
+      --accent-glow: rgba(108, 92, 231, 0.3);
+      --success: #00cec9;
+      --success-glow: rgba(0, 206, 201, 0.3);
+      --error: #ff6b6b;
+      --error-glow: rgba(255, 107, 107, 0.3);
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background:
+        radial-gradient(ellipse at 20% 20%, rgba(108, 92, 231, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(0, 206, 201, 0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(108, 92, 231, 0.03) 0%, transparent 70%);
+      z-index: 0;
+      animation: bgFloat 20s ease-in-out infinite;
+    }
+
+    @keyframes bgFloat {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      33% { transform: translate(2%, -2%) rotate(1deg); }
+      66% { transform: translate(-1%, 1%) rotate(-0.5deg); }
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 60px 24px 40px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .logo-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-light));
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 4px 24px var(--accent-glow);
+    }
+
+    .logo-text {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--text-primary), var(--accent-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header h1 {
+      font-size: 18px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      letter-spacing: -0.2px;
+    }
+
+    /* Input Area */
+    .input-area {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px;
+      margin-bottom: 24px;
+      backdrop-filter: blur(20px);
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .input-area:focus-within {
+      border-color: rgba(108, 92, 231, 0.4);
+      box-shadow: 0 0 0 4px rgba(108, 92, 231, 0.1);
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .input-row input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      padding: 14px 16px;
+      min-width: 0;
+    }
+
+    .input-row input::placeholder {
+      color: var(--text-secondary);
+    }
+
+    .btn-shorten {
+      background: linear-gradient(135deg, var(--accent), #5a4bd1);
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 14px 28px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-shorten:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+
+    .btn-shorten:active {
+      transform: translateY(0);
+    }
+
+    .btn-shorten:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-shorten .spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    .btn-shorten.loading .btn-text { display: none; }
+    .btn-shorten.loading .spinner { display: inline-block; }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Result Card */
+    .result-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 32px;
+      backdrop-filter: blur(20px);
+      animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      display: none;
+    }
+
+    .result-card.visible { display: block; }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+
+    .result-url {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      margin-bottom: 16px;
+    }
+
+    .result-url a {
+      flex: 1;
+      color: var(--accent-light);
+      text-decoration: none;
+      font-size: 16px;
+      font-weight: 600;
+      word-break: break-all;
+      transition: color 0.2s;
+    }
+
+    .result-url a:hover { color: white; }
+
+    .btn-copy {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 8px 14px;
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-copy:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .btn-copy.copied {
+      background: rgba(0, 206, 201, 0.15);
+      border-color: rgba(0, 206, 201, 0.3);
+      color: var(--success);
+    }
+
+    .result-original {
+      font-size: 13px;
+      color: var(--text-secondary);
+      word-break: break-all;
+    }
+
+    .result-original span {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    /* Error */
+    .error-msg {
+      background: rgba(255, 107, 107, 0.1);
+      border: 1px solid rgba(255, 107, 107, 0.2);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      color: var(--error);
+      font-size: 14px;
+      margin-bottom: 24px;
+      display: none;
+      animation: slideUp 0.3s ease;
+    }
+
+    .error-msg.visible { display: flex; align-items: center; gap: 8px; }
+
+    /* History */
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .history-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .btn-clear {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .btn-clear:hover { color: var(--error); }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .history-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: border-color 0.2s;
+      animation: slideUp 0.3s ease;
+    }
+
+    .history-item:hover {
+      border-color: rgba(108, 92, 231, 0.2);
+    }
+
+    .history-icon {
+      width: 36px;
+      height: 36px;
+      background: rgba(108, 92, 231, 0.1);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 16px;
+    }
+
+    .history-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .history-short {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent-light);
+      text-decoration: none;
+      word-break: break-all;
+    }
+
+    .history-short:hover { color: white; }
+
+    .history-original {
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+
+    .history-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-icon {
+      width: 34px;
+      height: 34px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .btn-icon:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
+    }
+
+    .btn-icon.copied {
+      background: rgba(0, 206, 201, 0.15);
+      border-color: rgba(0, 206, 201, 0.3);
+      color: var(--success);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text-secondary);
+    }
+
+    .empty-state .icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+
+    .empty-state p {
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      backdrop-filter: blur(20px);
+      z-index: 100;
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toast.visible {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .toast.success { border-color: rgba(0, 206, 201, 0.3); }
+    .toast.error { border-color: rgba(255, 107, 107, 0.3); }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .container { padding: 40px 16px 24px; }
+      .header { margin-bottom: 40px; }
+      .input-row { flex-direction: column; }
+      .btn-shorten { width: 100%; padding: 16px; }
+      .result-url { flex-direction: column; align-items: flex-start; }
+      .btn-copy { width: 100%; justify-content: center; }
+      .history-item { flex-direction: column; align-items: flex-start; }
+      .history-actions { width: 100%; }
+      .btn-icon { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="logo">
+        <div class="logo-icon">&#x1F98A;</div>
+        <div class="logo-text">FoxHole</div>
+      </div>
+      <h1>Encurte qualquer URL de forma r&#225;pida e elegante</h1>
+    </header>
+
+    <div class="input-area">
+      <div class="input-row">
+        <input type="url" id="urlInput" placeholder="Cole sua URL aqui..." autocomplete="off" spellcheck="false">
+        <button class="btn-shorten" id="btnShorten" onclick="shortenUrl()">
+          <span class="btn-text">Encurtar</span>
+          <div class="spinner"></div>
+        </button>
+      </div>
+    </div>
+
+    <div class="error-msg" id="errorMsg">
+      <span>&#x26A0;</span>
+      <span id="errorText"></span>
+    </div>
+
+    <div class="result-card" id="resultCard">
+      <div class="result-label">URL encurtada</div>
+      <div class="result-url">
+        <a id="shortUrl" href="#" target="_blank"></a>
+        <button class="btn-copy" id="btnCopy" onclick="copyShortUrl()">
+          <span id="copyIcon">&#x2398;</span>
+          <span id="copyText">Copiar</span>
+        </button>
+      </div>
+      <div class="result-original">
+        <span>&#x2190;</span> <span id="originalUrl"></span>
+      </div>
+    </div>
+
+    <div class="history-header" id="historyHeader" style="display: none;">
+      <h2>Hist&#243;rico</h2>
+      <button class="btn-clear" onclick="clearHistory()">Limpar tudo</button>
+    </div>
+
+    <div class="history-list" id="historyList"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const API_BASE = window.location.origin;
+    let history = JSON.parse(localStorage.getItem('foxhole_history') || '[]');
+
+    const urlInput = document.getElementById('urlInput');
+    const btnShorten = document.getElementById('btnShorten');
+    const errorMsg = document.getElementById('errorMsg');
+    const errorText = document.getElementById('errorText');
+    const resultCard = document.getElementById('resultCard');
+    const shortUrl = document.getElementById('shortUrl');
+    const originalUrl = document.getElementById('originalUrl');
+    const historyList = document.getElementById('historyList');
+    const historyHeader = document.getElementById('historyHeader');
+    const toast = document.getElementById('toast');
+
+    urlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') shortenUrl();
+    });
+
+    async function shortenUrl() {
+      const url = urlInput.value.trim();
+
+      hideError();
+      resultCard.classList.remove('visible');
+
+      if (!url) {
+        showError('Por favor, insira uma URL v&#225;lida.');
+        return;
+      }
+
+      if (!isValidUrl(url)) {
+        showError('URL inv&#225;lida. Certifique-se de incluir http:// ou https://');
+        return;
+      }
+
+      btnShorten.classList.add('loading');
+      btnShorten.disabled = true;
+
+      try {
+        const res = await fetch(`${API_BASE}/encurtar?link=${encodeURIComponent(url)}`);
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.detail || 'Erro ao encurtar URL');
+        }
+
+        const data = await res.json();
+
+        shortUrl.href = data.url_encurtada;
+        shortUrl.textContent = data.url_encurtada;
+        originalUrl.textContent = data.url_original;
+        resultCard.classList.remove('visible');
+        void resultCard.offsetWidth;
+        resultCard.classList.add('visible');
+
+        addToHistory(data);
+        urlInput.value = '';
+        showToast('URL encurtada com sucesso!', 'success');
+      } catch (err) {
+        showError(err.message || 'Erro ao conectar ao servidor. Verifique se o backend est&#225; rodando.');
+      } finally {
+        btnShorten.classList.remove('loading');
+        btnShorten.disabled = false;
+      }
+    }
+
+    function isValidUrl(string) {
+      try {
+        const url = new URL(string);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    }
+
+    function showError(msg) {
+      errorText.innerHTML = msg;
+      errorMsg.classList.add('visible');
+    }
+
+    function hideError() {
+      errorMsg.classList.remove('visible');
+    }
+
+    function showToast(msg, type = 'success') {
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `<span>${type === 'success' ? '&#x2713;' : '&#x2717;'}</span> ${msg}`;
+      toast.classList.add('visible');
+      setTimeout(() => toast.classList.remove('visible'), 3000);
+    }
+
+    async function copyShortUrl(url) {
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast('Link copiado!', 'success');
+        const btn = event.currentTarget;
+        btn.classList.add('copied');
+        setTimeout(() => btn.classList.remove('copied'), 1500);
+      } catch {
+        showToast('Falha ao copiar', 'error');
+      }
+    }
+
+    function addToHistory(item) {
+      history.unshift(item);
+      if (history.length > 20) history.pop();
+      localStorage.setItem('foxhole_history', JSON.stringify(history));
+      renderHistory();
+    }
+
+    function renderHistory() {
+      if (history.length === 0) {
+        historyHeader.style.display = 'none';
+        historyList.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">&#x1F3F7;</div>
+            <p>Nenhuma URL encurtada ainda.<br>Sua hist&#243;rico aparecer&#225; aqui.</p>
+          </div>`;
+        return;
+      }
+
+      historyHeader.style.display = 'flex';
+      historyList.innerHTML = history.map((item, i) => `
+        <div class="history-item">
+          <div class="history-icon">&#x1F517;</div>
+          <div class="history-info">
+            <a class="history-short" href="${item.url_encurtada}" target="_blank">${item.url_encurtada}</a>
+            <div class="history-original">${item.url_original}</div>
+          </div>
+          <div class="history-actions">
+            <button class="btn-icon" onclick="copyShortUrl('${item.url_encurtada}')" title="Copiar">
+              &#x2398;
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function clearHistory() {
+      history = [];
+      localStorage.removeItem('foxhole_history');
+      renderHistory();
+      showToast('Hist&#243;rico limpo', 'success');
+    }
+
+    renderHistory();
+  </script>
+</body>
+</html>
