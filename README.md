@@ -30,6 +30,8 @@ O fluxo do Foxhole foi projetado para ser direto e simples:
 
 ---
 
+## DEMONSTRAÇÂO 
+![Demonstração do projeto](./img/demo.gif)
 ## 📂 Estrutura do Projeto
 
 ```text
